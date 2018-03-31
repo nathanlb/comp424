@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -30,6 +31,7 @@ public class StudentPlayer extends TablutPlayer {
 	private Map<TablutBoardState, Node> state_node;
 	private double b;
 	private double c;
+	private long max_time = 2000000;
 	
     /**
      * You must modify this constructor to return your student number. This is
@@ -52,10 +54,36 @@ public class StudentPlayer extends TablutPlayer {
         MyTools.getSomething();
 
         // Is random the best you can do?
-        Move myMove = boardState.getRandomMove();
+        //Move myMove = boardState.getRandomMove();
+        Move myMove = monte_carlo_tree_search(boardState);
 
         // Return your move to be processed by the server.
         return myMove;
+    }
+    
+    private TablutMove monte_carlo_tree_search(TablutBoardState boardState){
+    	
+    	Node root;
+    	Node node_choice;
+    	int num_sims = 0;
+    	long now;
+    	
+    	if (state_node.containsKey(boardState)){
+    		root = state_node.get(boardState);
+    	}
+    	else{
+    		root = new Node(boardState, boardState.getAllLegalMoves().size(), null);
+    	}
+    	
+    	now = System.nanoTime();
+    	while ((System.nanoTime() - now)/1000 < max_time && root.moves_unfinished > 0){
+    		node_choice = tree_policy(root);
+    		Sim_Results results = simulate(node_choice.board_state);
+    		back_propagation(node_choice, results);
+    		num_sims++;
+    	}
+    	
+    	return best_action(root);
     }
     
     private Node tree_policy(Node root){
@@ -76,7 +104,8 @@ public class StudentPlayer extends TablutPlayer {
     			unexpanded_moves = get_new_moves(curr_node, legal_moves);
     			
     			move = get_random_move(unexpanded_moves);
-    			next_state = (TablutBoardState)deepClone(curr_node.board_state);
+    			//next_state = (TablutBoardState)deepClone(curr_node.board_state);
+    			next_state = (TablutBoardState)curr_node.board_state.clone();
     			next_state.processMove(move);
     			
     			Node child = new Node(next_state, legal_moves.size(), move);
@@ -166,6 +195,41 @@ public class StudentPlayer extends TablutPlayer {
     	return get_random_move(best_actions);
     }
     
+    private void back_propagation(Node n, Sim_Results result){
+    	
+    }
+    
+    private Sim_Results simulate(TablutBoardState boardState){
+    	
+    	Sim_Results results = new Sim_Results();
+    	int winner = Board.NOBODY; 
+    	ArrayList<TablutMove>legal_moves;
+    	TablutMove picked;
+    	
+    	TablutBoardState state = (TablutBoardState)boardState.clone();
+    	
+    	while (true){
+    		
+    		winner = state.getWinner();
+    		
+    		if (winner != Board.NOBODY){
+    			if (winner == role)
+    				results.result = 1;
+    			else if (winner == getOpponent())
+    				results.result = 0;
+    			else
+    				results.result = 0.5;
+    			return results;		
+    		}
+    		
+    		legal_moves = boardState.getAllLegalMoves();
+    		picked = get_random_move(legal_moves);
+    		results.actions.get(state.getTurnPlayer()).add(picked);
+    		
+    		state.processMove(picked);
+    	}
+    }
+    
     private ArrayList<TablutMove> get_new_moves(Node n, ArrayList<TablutMove> moves){
     	ArrayList<TablutMove> unex_moves = new ArrayList<TablutMove>();
     	for (TablutMove m : moves){
@@ -182,6 +246,9 @@ public class StudentPlayer extends TablutPlayer {
     	return m;
     }
     
+    private int getOpponent(){
+    	return (role == TablutBoardState.MUSCOVITE) ? TablutBoardState.SWEDE : TablutBoardState.MUSCOVITE;
+    }
     /**
      * This method makes a "deep clone" of any Java object it is given.
      */
@@ -267,5 +334,19 @@ public class StudentPlayer extends TablutPlayer {
     		return this.amaf_plays / (this.plays + this.amaf_plays + 4 * this.plays * this.amaf_plays * Math.pow(b, 2));
     	}
     	
+    }
+    
+    private static class Sim_Results {
+    	double result;
+    	ArrayList<TablutMove> player_actions;
+    	ArrayList<TablutMove> opponent_actions;
+    	ArrayList<ArrayList<TablutMove>> actions;
+    	
+    	public Sim_Results(){
+    		player_actions = new ArrayList<TablutMove>();
+    		opponent_actions = new ArrayList<TablutMove>();
+    		actions.add(player_actions);
+    		actions.add(opponent_actions);
+    	}
     }
 }
