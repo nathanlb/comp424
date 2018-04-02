@@ -29,7 +29,7 @@ public class StudentPlayer extends TablutPlayer {
 	
 	private static Random randomGenerator;
 	private int role;
-	private Map<TablutBoardState, Node> state_node;
+	private static Map<TablutBoardState, Node> state_node;
 	private double b;
 	private double c;
 	private long max_time;
@@ -48,15 +48,19 @@ public class StudentPlayer extends TablutPlayer {
      * object contains the current state of the game, which your agent must use to
      * make decisions.
      */
-    public Move chooseMove(TablutBoardState boardState) {
+    @SuppressWarnings("unchecked")
+	public Move chooseMove(TablutBoardState boardState) {
         // You probably will make separate functions in MyTools.
         // For example, maybe you'll need to load some pre-processed best opening
         // strategies...
-        // MyTools.getSomething();
+        //MyTools.getSomething();
         c = 1;
         b = 0.1;
-        if (state_node == null)
-        	state_node = new HashMap<TablutBoardState, Node>();
+        if (state_node == null){
+        	//if ((state_node = (Map<TablutBoardState, Node>) MyTools.loadFromXMLwithXStream()) == null)
+        		state_node = new HashMap<TablutBoardState, Node>();
+        }
+        	
         max_time = 1500000;
         role = player_id;
         randomGenerator = new Random();
@@ -456,6 +460,7 @@ public class StudentPlayer extends TablutPlayer {
             System.out.println("\nMOVE PLAYED: " + m.toPrettyString());
             b.printBoard();
         }
+        //MyTools.saveToXMLwithXStream(state_node);
         System.out.println(TablutMove.getPlayerName(b.getWinner()) + " WIN!");
     }
 }
