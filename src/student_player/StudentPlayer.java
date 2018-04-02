@@ -17,21 +17,22 @@ import java.util.TreeSet;
 
 import boardgame.Board;
 import boardgame.Move;
+import boardgame.Player;
+import tablut.GreedyTablutPlayer;
+import tablut.RandomTablutPlayer;
 import tablut.TablutBoardState;
 import tablut.TablutMove;
 import tablut.TablutPlayer;
 
 /** A player file submitted by a student. */
 public class StudentPlayer extends TablutPlayer {
-
-	private enum Role { MOSCOVITES, SWEDES }
 	
 	private static Random randomGenerator;
 	private int role;
 	private Map<TablutBoardState, Node> state_node;
 	private double b;
 	private double c;
-	private long max_time = 2000000;
+	private long max_time;
 	
     /**
      * You must modify this constructor to return your student number. This is
@@ -51,9 +52,15 @@ public class StudentPlayer extends TablutPlayer {
         // You probably will make separate functions in MyTools.
         // For example, maybe you'll need to load some pre-processed best opening
         // strategies...
-        MyTools.getSomething();
+        // MyTools.getSomething();
+        c = 1;
+        b = 0.1;
+        if (state_node == null)
+        	state_node = new HashMap<TablutBoardState, Node>();
+        max_time = 1500000;
+        role = player_id;
+        randomGenerator = new Random();
 
-        // Is random the best you can do?
         //Move myMove = boardState.getRandomMove();
         Move myMove = monte_carlo_tree_search(boardState);
 
@@ -61,6 +68,11 @@ public class StudentPlayer extends TablutPlayer {
         return myMove;
     }
     
+    /**
+     * Performs Monte Carlo Tree Search
+     * @param Board state
+     * @return Move to be executes
+     */
     private TablutMove monte_carlo_tree_search(TablutBoardState boardState){
     	
     	Node root;
@@ -86,7 +98,13 @@ public class StudentPlayer extends TablutPlayer {
     	return best_action(root);
     }
     
+    /**
+     * Chose node according to tree policy
+     * @param root node
+     * @return chosen node according to tree policy
+     */
     private Node tree_policy(Node root){
+    	
     	Node curr_node = root;
     	ArrayList<TablutMove> legal_moves;
     	ArrayList<TablutMove> unexpanded_moves;
@@ -121,6 +139,11 @@ public class StudentPlayer extends TablutPlayer {
     	return curr_node;
     }
     
+    /**
+     * Chose best child according to tree values
+     * @param node from which to choose
+     * @return returns next node to chose
+     */
     private Node best_child(Node n){
     	
     	boolean enemy_turn = (n.board_state.getTurnPlayer() != role);
@@ -129,12 +152,12 @@ public class StudentPlayer extends TablutPlayer {
     	for (Node child : n.children){
     		double wins = child.get_wins();
     		double plays = child.get_plays();
-    		double a_wins = child.get_amaf_plays();
-    		double a_plays = child.get_amaf_plays();
+    		double a_wins = 0; //child.get_amaf_plays();
+    		double a_plays = 0; //child.get_amaf_plays();
     		
     		if (enemy_turn){
     			wins = plays - wins;
-    			a_wins = a_plays - a_wins;
+    			//a_wins = a_plays - a_wins;
     		}
     		
     		double parent_plays = n.get_plays();
@@ -154,6 +177,11 @@ public class StudentPlayer extends TablutPlayer {
 		return best_choice;
     }
     
+    /**
+     * Gets the key associated with max value from map
+     * @param map of of nodes with associated values
+     * @return node associated with max value
+     */
     private Node get_max_key(Map<Node, Double> map){
     	Node max_node = null;
     	double max_val = Double.NEGATIVE_INFINITY;
@@ -166,8 +194,13 @@ public class StudentPlayer extends TablutPlayer {
     	}
     	return max_node;
     }
-    
+    /**
+     * Returns the best move to make from argument node
+     * @param node n form which to choose
+     * @return best move
+     */
     private TablutMove best_action(Node n){
+    	
     	double most_plays = Double.NEGATIVE_INFINITY;
     	double best_wins = Double.NEGATIVE_INFINITY;
     	ArrayList<TablutMove> best_actions = new ArrayList<TablutMove>();
@@ -195,10 +228,29 @@ public class StudentPlayer extends TablutPlayer {
     	return get_random_move(best_actions);
     }
     
-    private void back_propagation(Node n, Sim_Results result){
-    	
+    /**
+     * Update nodes in tree with result
+     * @param node n
+     * @param simulation results
+     */
+    private void back_propagation(Node n, Sim_Results r){
+    	// Update all nodes in path
+    	while (n.parent != null){
+    		n.plays++;
+    		n.wins += r.result;
+    		
+    		n = n.parent;
+    	}
+    	// Update root node
+    	n.plays++;
+    	n.wins += r.result;
     }
     
+    /**
+     * Simulates game of Tablut and returns result
+     * @param boardState
+     * @return Results of simulation
+     */
     private Sim_Results simulate(TablutBoardState boardState){
     	
     	Sim_Results results = new Sim_Results();
@@ -222,13 +274,20 @@ public class StudentPlayer extends TablutPlayer {
     			return results;		
     		}
     		
-    		legal_moves = boardState.getAllLegalMoves();
+    		legal_moves = state.getAllLegalMoves();
     		picked = get_random_move(legal_moves);
     		results.actions.get(state.getTurnPlayer()).add(picked);
     		
     		state.processMove(picked);
     	}
     }
+    
+    /**
+     * Returns unexpanded moves from node
+     * @param node
+     * @param legal moves
+     * @return list of unexpanded moves
+     */
     
     private ArrayList<TablutMove> get_new_moves(Node n, ArrayList<TablutMove> moves){
     	ArrayList<TablutMove> unex_moves = new ArrayList<TablutMove>();
@@ -240,15 +299,25 @@ public class StudentPlayer extends TablutPlayer {
     	return unex_moves;
     }
     
+    /**
+     * Returns random move from specified move list
+     * @param move list
+     * @return random move
+     */
     private TablutMove get_random_move(ArrayList<TablutMove> l){
     	int index = randomGenerator.nextInt(l.size());
     	TablutMove m = l.get(index);
     	return m;
     }
     
+    /**
+     * Returns opponent role as integer
+     * @return 
+     */
     private int getOpponent(){
     	return (role == TablutBoardState.MUSCOVITE) ? TablutBoardState.SWEDE : TablutBoardState.MUSCOVITE;
     }
+    
     /**
      * This method makes a "deep clone" of any Java object it is given.
      */
@@ -267,6 +336,11 @@ public class StudentPlayer extends TablutPlayer {
        }
      }
     
+     /**
+      * Node class to be used in building monte carlo tree
+      * @author Nathan
+      *
+      */
     class Node {
     	
     	TablutBoardState board_state;
@@ -345,8 +419,43 @@ public class StudentPlayer extends TablutPlayer {
     	public Sim_Results(){
     		player_actions = new ArrayList<TablutMove>();
     		opponent_actions = new ArrayList<TablutMove>();
+    		actions = new ArrayList<ArrayList<TablutMove>>();
     		actions.add(player_actions);
     		actions.add(opponent_actions);
     	}
+    }
+    
+ // For Debugging purposes only.
+    public static void main(String[] args) {
+        TablutBoardState b = new TablutBoardState();
+        
+        //Player swede = new GreedyTablutPlayer("GreedySwede");
+        //swede.setColor(TablutBoardState.SWEDE);
+
+        //Player swede = new RandomTablutPlayer("RandomSwede");
+        //swede.setColor(TablutBoardState.SWEDE);
+        
+        Player swede = new StudentPlayer();
+        swede.setColor(TablutBoardState.SWEDE);
+        
+        //Player muscovite = new GreedyTablutPlayer("PlayerMuscovite");
+        //muscovite.setColor(TablutBoardState.MUSCOVITE);
+        //((GreedyTablutPlayer) muscovite).rand = new Random(4);
+
+        Player muscovite = new RandomTablutPlayer("RandomMuscovite");
+        muscovite.setColor(TablutBoardState.MUSCOVITE);
+        
+        //Player muscovite = new StudentPlayer();
+        //muscovite.setColor(TablutBoardState.MUSCOVITE);
+
+        Player player = muscovite;
+        while (!b.gameOver()) {
+            Move m = player.chooseMove(b);
+            b.processMove((TablutMove) m);
+            player = (player == muscovite) ? swede : muscovite;
+            System.out.println("\nMOVE PLAYED: " + m.toPrettyString());
+            b.printBoard();
+        }
+        System.out.println(TablutMove.getPlayerName(b.getWinner()) + " WIN!");
     }
 }
