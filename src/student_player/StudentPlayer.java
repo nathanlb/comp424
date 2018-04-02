@@ -33,6 +33,7 @@ public class StudentPlayer extends TablutPlayer {
 	private double b;
 	private double c;
 	private long max_time;
+	private long now;
 	
     /**
      * You must modify this constructor to return your student number. This is
@@ -53,7 +54,7 @@ public class StudentPlayer extends TablutPlayer {
         // You probably will make separate functions in MyTools.
         // For example, maybe you'll need to load some pre-processed best opening
         // strategies...
-        //MyTools.getSomething();
+
         c = 1;
         b = 0.1;
         if (state_node == null){
@@ -61,7 +62,7 @@ public class StudentPlayer extends TablutPlayer {
         		state_node = new HashMap<TablutBoardState, Node>();
         }
         	
-        max_time = 1500000;
+        max_time = 1900000;
         role = player_id;
         randomGenerator = new Random();
 
@@ -82,14 +83,11 @@ public class StudentPlayer extends TablutPlayer {
     	Node root;
     	Node node_choice;
     	int num_sims = 0;
-    	long now;
     	
-    	if (state_node.containsKey(boardState)){
+    	if (state_node.containsKey(boardState))
     		root = state_node.get(boardState);
-    	}
-    	else{
+    	else
     		root = new Node(boardState, boardState.getAllLegalMoves().size(), null);
-    	}
     	
     	now = System.nanoTime();
     	while ((System.nanoTime() - now)/1000 < max_time && root.moves_unfinished > 0){
@@ -98,6 +96,7 @@ public class StudentPlayer extends TablutPlayer {
     		back_propagation(node_choice, results);
     		num_sims++;
     	}
+    	long time_elapsed = (System.nanoTime() - now)/1000;
     	
     	return best_action(root);
     }
@@ -264,7 +263,7 @@ public class StudentPlayer extends TablutPlayer {
     	
     	TablutBoardState state = (TablutBoardState)boardState.clone();
     	
-    	while (true){
+    	while (true && (System.nanoTime() - now)/1000 < max_time){
     		
     		winner = state.getWinner();
     		
@@ -279,11 +278,23 @@ public class StudentPlayer extends TablutPlayer {
     		}
     		
     		legal_moves = state.getAllLegalMoves();
+    		if (legal_moves.size() == 0){
+    			winner = getOpponent();
+    			if (winner == role)
+    				results.result = 1;
+    			else if (winner == getOpponent())
+    				results.result = 0;
+    			else
+    				results.result = 0.5;
+    			return results;		
+    		}
     		picked = get_random_move(legal_moves);
     		results.actions.get(state.getTurnPlayer()).add(picked);
     		
     		state.processMove(picked);
     	}
+    	results.result = 0.5;
+		return results;	
     }
     
     /**
@@ -433,24 +444,25 @@ public class StudentPlayer extends TablutPlayer {
     public static void main(String[] args) {
         TablutBoardState b = new TablutBoardState();
         
-        //Player swede = new GreedyTablutPlayer("GreedySwede");
-        //swede.setColor(TablutBoardState.SWEDE);
+        Player swede = new GreedyTablutPlayer("GreedySwede");
+        swede.setColor(TablutBoardState.SWEDE);
+        ((GreedyTablutPlayer) swede).rand = new Random(4);
 
         //Player swede = new RandomTablutPlayer("RandomSwede");
         //swede.setColor(TablutBoardState.SWEDE);
         
-        Player swede = new StudentPlayer();
-        swede.setColor(TablutBoardState.SWEDE);
+        //Player swede = new StudentPlayer();
+        //swede.setColor(TablutBoardState.SWEDE);
         
         //Player muscovite = new GreedyTablutPlayer("PlayerMuscovite");
         //muscovite.setColor(TablutBoardState.MUSCOVITE);
         //((GreedyTablutPlayer) muscovite).rand = new Random(4);
 
-        Player muscovite = new RandomTablutPlayer("RandomMuscovite");
-        muscovite.setColor(TablutBoardState.MUSCOVITE);
-        
-        //Player muscovite = new StudentPlayer();
+        //Player muscovite = new RandomTablutPlayer("RandomMuscovite");
         //muscovite.setColor(TablutBoardState.MUSCOVITE);
+        
+        Player muscovite = new StudentPlayer();
+        muscovite.setColor(TablutBoardState.MUSCOVITE);
 
         Player player = muscovite;
         while (!b.gameOver()) {

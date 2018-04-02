@@ -8,9 +8,6 @@ import java.util.Map;
 
 import com.thoughtworks.xstream.XStream;
 
-import student_player.StudentPlayer.Node;
-import tablut.TablutBoardState;
-
 public class MyTools {
 	
 	private static XStream xstream = new XStream();
