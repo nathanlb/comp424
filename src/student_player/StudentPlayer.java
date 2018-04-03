@@ -33,7 +33,7 @@ public class StudentPlayer extends TablutPlayer {
 	private double b;
 	private double c;
 	private long max_time;
-	private long now;
+	private long start;
 	
     /**
      * You must modify this constructor to return your student number. This is
@@ -62,7 +62,7 @@ public class StudentPlayer extends TablutPlayer {
         		state_node = new HashMap<TablutBoardState, Node>();
         }
         	
-        max_time = 1900000;
+        max_time = 1990000;
         role = player_id;
         randomGenerator = new Random();
 
@@ -83,20 +83,26 @@ public class StudentPlayer extends TablutPlayer {
     	Node root;
     	Node node_choice;
     	int num_sims = 0;
+  		long elapsed = 0;
+    	
+    	start = System.nanoTime();
     	
     	if (state_node.containsKey(boardState))
     		root = state_node.get(boardState);
     	else
-    		root = new Node(boardState, boardState.getAllLegalMoves().size(), null);
+    		root = new Node(boardState, boardState.getAllLegalMoves().size(), null);   	
     	
-    	now = System.nanoTime();
-    	while ((System.nanoTime() - now)/1000 < max_time && root.moves_unfinished > 0){
+    	while (elapsed < max_time && root.moves_unfinished > 0){
     		node_choice = tree_policy(root);
     		Sim_Results results = simulate(node_choice.board_state);
     		back_propagation(node_choice, results);
     		num_sims++;
+    		elapsed = (System.nanoTime() - start)/1000;
+    		//System.out.println("Time diff : " + (System.nanoTime() - start)/1000);
     	}
-    	long time_elapsed = (System.nanoTime() - now)/1000;
+    	
+    	System.out.println("Time elapsed : " + elapsed);
+    	System.out.println("# sims : " + num_sims);
     	
     	return best_action(root);
     }
@@ -155,8 +161,6 @@ public class StudentPlayer extends TablutPlayer {
     	for (Node child : n.children){
     		double wins = child.get_wins();
     		double plays = child.get_plays();
-    		double a_wins = 0; //child.get_amaf_plays();
-    		double a_plays = 0; //child.get_amaf_plays();
     		
     		if (enemy_turn){
     			wins = plays - wins;
@@ -164,16 +168,9 @@ public class StudentPlayer extends TablutPlayer {
     		}
     		
     		double parent_plays = n.get_plays();
-    		double beta = n.get_beta(b);
     		
-    		if (a_plays > 0){
-    			double newval = (1 - beta) * (wins / plays) + beta * (a_wins / a_plays) + this.c * Math.sqrt(2 * Math.log(parent_plays) / plays);
-    			vals.put(child, newval);
-    		}
-    		else{
-    			double newval = (wins / plays) + this.c * Math.sqrt(2 * Math.log(parent_plays)/ plays);
-    			vals.put(child, newval);
-    		}
+    		double newval = (wins / plays) + this.c * Math.sqrt(2 * Math.log(parent_plays)/ plays);
+    		vals.put(child, newval);
     	}
     	
     	Node best_choice = get_max_key(vals);
@@ -238,7 +235,7 @@ public class StudentPlayer extends TablutPlayer {
      */
     private void back_propagation(Node n, Sim_Results r){
     	// Update all nodes in path
-    	while (n.parent != null){
+    	while (n.parent != null && (System.nanoTime() - start)/1000 < max_time){
     		n.plays++;
     		n.wins += r.result;
     		
@@ -263,7 +260,7 @@ public class StudentPlayer extends TablutPlayer {
     	
     	TablutBoardState state = (TablutBoardState)boardState.clone();
     	
-    	while (true && (System.nanoTime() - now)/1000 < max_time){
+    	while (true && (System.nanoTime() - start)/1000 < max_time){
     		
     		winner = state.getWinner();
     		
@@ -289,7 +286,7 @@ public class StudentPlayer extends TablutPlayer {
     			return results;		
     		}
     		picked = get_random_move(legal_moves);
-    		results.actions.get(state.getTurnPlayer()).add(picked);
+    		//results.actions.get(state.getTurnPlayer()).add(picked);
     		
     		state.processMove(picked);
     	}
@@ -373,8 +370,6 @@ public class StudentPlayer extends TablutPlayer {
     		board_state = state;
     		plays = 10;
     		wins = 10;
-    		amaf_plays = 10;
-    		amaf_wins = 0.5;
     		children = new ArrayList<Node>();
     		parent = null;
     		moves_expanded = new HashSet<Move>();
@@ -411,23 +406,11 @@ public class StudentPlayer extends TablutPlayer {
     		return this.plays;
     	}
     	
-    	double get_amaf_wins(){
-    		return this.amaf_wins;
-    	}
-    	
-    	double get_amaf_plays(){
-    		return this.amaf_plays;
-    	}
-    	
-    	double get_beta(double b){
-    		return this.amaf_plays / (this.plays + this.amaf_plays + 4 * this.plays * this.amaf_plays * Math.pow(b, 2));
-    	}
-    	
     }
     
     private static class Sim_Results {
     	double result;
-    	ArrayList<TablutMove> player_actions;
+    	/*ArrayList<TablutMove> player_actions;
     	ArrayList<TablutMove> opponent_actions;
     	ArrayList<ArrayList<TablutMove>> actions;
     	
@@ -437,34 +420,50 @@ public class StudentPlayer extends TablutPlayer {
     		actions = new ArrayList<ArrayList<TablutMove>>();
     		actions.add(player_actions);
     		actions.add(opponent_actions);
-    	}
+    	}*/
     }
     
  // For Debugging purposes only.
     public static void main(String[] args) {
-        TablutBoardState b = new TablutBoardState();
-        
-        Player swede = new GreedyTablutPlayer("GreedySwede");
-        swede.setColor(TablutBoardState.SWEDE);
-        ((GreedyTablutPlayer) swede).rand = new Random(4);
+    	
+        int num_wins_m = 0;
+        int num_wins_s = 0;
+        int num_games = 10;
+        /*for (int i=0; i < num_games; i++){
+	        num_wins_m += play_game_muscovites();
+        }*/
+        for (int i=0; i < num_games; i++){
+	        num_wins_s += play_game_swedes();
+        }
+        System.out.println("Won "+num_wins_m+"/"+num_games+" as MUSCOVITES");
+        System.out.println("Won "+num_wins_s+"/"+num_games+" as SWEDES");
+    }
+    
+    public static int play_game_muscovites(){
+    	 TablutBoardState b = new TablutBoardState();
+         
+         Player swede = new GreedyTablutPlayer("GreedySwede");
+         swede.setColor(TablutBoardState.SWEDE);
+         ((GreedyTablutPlayer) swede).rand = new Random(4);
 
-        //Player swede = new RandomTablutPlayer("RandomSwede");
-        //swede.setColor(TablutBoardState.SWEDE);
-        
-        //Player swede = new StudentPlayer();
-        //swede.setColor(TablutBoardState.SWEDE);
-        
-        //Player muscovite = new GreedyTablutPlayer("PlayerMuscovite");
-        //muscovite.setColor(TablutBoardState.MUSCOVITE);
-        //((GreedyTablutPlayer) muscovite).rand = new Random(4);
+         //Player swede = new RandomTablutPlayer("RandomSwede");
+         //swede.setColor(TablutBoardState.SWEDE);
+         
+         //Player swede = new StudentPlayer();
+         //swede.setColor(TablutBoardState.SWEDE);
+         
+         //Player muscovite = new GreedyTablutPlayer("PlayerMuscovite");
+         //muscovite.setColor(TablutBoardState.MUSCOVITE);
+         //((GreedyTablutPlayer) muscovite).rand = new Random(4);
 
-        //Player muscovite = new RandomTablutPlayer("RandomMuscovite");
-        //muscovite.setColor(TablutBoardState.MUSCOVITE);
-        
-        Player muscovite = new StudentPlayer();
-        muscovite.setColor(TablutBoardState.MUSCOVITE);
+         //Player muscovite = new RandomTablutPlayer("RandomMuscovite");
+         //muscovite.setColor(TablutBoardState.MUSCOVITE);
+         
+         Player muscovite = new StudentPlayer();
+         muscovite.setColor(TablutBoardState.MUSCOVITE);
 
-        Player player = muscovite;
+         Player player = muscovite;
+         
         while (!b.gameOver()) {
             Move m = player.chooseMove(b);
             b.processMove((TablutMove) m);
@@ -474,5 +473,49 @@ public class StudentPlayer extends TablutPlayer {
         }
         //MyTools.saveToXMLwithXStream(state_node);
         System.out.println(TablutMove.getPlayerName(b.getWinner()) + " WIN!");
+        if (TablutMove.getPlayerName(b.getWinner()) == "Muscovites")
+        	return 1;
+        else
+        	return 0;
     }
+    
+    public static int play_game_swedes(){
+   	 TablutBoardState b = new TablutBoardState();
+        
+        //Player swede = new GreedyTablutPlayer("GreedySwede");
+        //swede.setColor(TablutBoardState.SWEDE);
+        //((GreedyTablutPlayer) swede).rand = new Random(4);
+
+        //Player swede = new RandomTablutPlayer("RandomSwede");
+        //swede.setColor(TablutBoardState.SWEDE);
+        
+        Player swede = new StudentPlayer();
+        swede.setColor(TablutBoardState.SWEDE);
+        
+        Player muscovite = new GreedyTablutPlayer("PlayerMuscovite");
+        muscovite.setColor(TablutBoardState.MUSCOVITE);
+        ((GreedyTablutPlayer) muscovite).rand = new Random(4);
+
+        //Player muscovite = new RandomTablutPlayer("RandomMuscovite");
+        //muscovite.setColor(TablutBoardState.MUSCOVITE);
+        
+        //Player muscovite = new StudentPlayer();
+        //muscovite.setColor(TablutBoardState.MUSCOVITE);
+
+        Player player = muscovite;
+        
+       while (!b.gameOver()) {
+           Move m = player.chooseMove(b);
+           b.processMove((TablutMove) m);
+           player = (player == muscovite) ? swede : muscovite;
+           System.out.println("\nMOVE PLAYED: " + m.toPrettyString());
+           b.printBoard();
+       }
+       //MyTools.saveToXMLwithXStream(state_node);
+       System.out.println(TablutMove.getPlayerName(b.getWinner()) + " WIN!");
+       if (TablutMove.getPlayerName(b.getWinner()) == "Swedes")
+       	return 1;
+       else
+       	return 0;
+   }
 }
