@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.TimeUnit;
 
 import boardgame.Board;
 import boardgame.Move;
@@ -82,6 +83,7 @@ public class StudentPlayer extends TablutPlayer {
     	
     	Node root;
     	Node node_choice;
+    	Sim_Results results;
     	int num_sims = 0;
   		long elapsed = 0;
     	
@@ -94,7 +96,13 @@ public class StudentPlayer extends TablutPlayer {
     	
     	while (elapsed < max_time && root.moves_unfinished > 0){
     		node_choice = tree_policy(root);
-    		Sim_Results results = simulate(node_choice.board_state);
+    		if (node_choice == null){
+    			results = new Sim_Results();
+    			results.result = 0;
+    		}
+    		else{
+    			results = simulate(node_choice.board_state);
+    		}
     		back_propagation(node_choice, results);
     		num_sims++;
     		elapsed = (System.nanoTime() - start)/1000;
@@ -115,13 +123,18 @@ public class StudentPlayer extends TablutPlayer {
     private Node tree_policy(Node root){
     	
     	Node curr_node = root;
-    	ArrayList<TablutMove> legal_moves;
+    	ArrayList<TablutMove> legal_moves = new ArrayList<TablutMove>();
     	ArrayList<TablutMove> unexpanded_moves;
     	TablutMove move;
     	TablutBoardState next_state;
     	
     	while (root.moves_unfinished > 0){
-    		legal_moves = curr_node.board_state.getAllLegalMoves();
+    		try{
+    			legal_moves = curr_node.board_state.getAllLegalMoves();
+    		}
+    		catch(NullPointerException e){
+    			System.out.println(e);
+    		}
     		
     		if (curr_node.board_state.getWinner() != Board.NOBODY){
     			curr_node.propagate_completion();
@@ -140,6 +153,9 @@ public class StudentPlayer extends TablutPlayer {
     			state_node.put(next_state, child);
     			
     			return child;
+    		}
+    		else if (legal_moves.size() == 0){
+    			return curr_node;
     		}
     		else{
     			curr_node = best_child(curr_node);
@@ -164,7 +180,6 @@ public class StudentPlayer extends TablutPlayer {
     		
     		if (enemy_turn){
     			wins = plays - wins;
-    			//a_wins = a_plays - a_wins;
     		}
     		
     		double parent_plays = n.get_plays();
@@ -191,6 +206,9 @@ public class StudentPlayer extends TablutPlayer {
     			max_node = entry.getKey();
     			max_val = entry.getValue();
     		}
+    	}
+    	if (max_node == null){
+    		int i = 0;
     	}
     	return max_node;
     }
@@ -260,7 +278,7 @@ public class StudentPlayer extends TablutPlayer {
     	
     	TablutBoardState state = (TablutBoardState)boardState.clone();
     	
-    	while (true && (System.nanoTime() - start)/1000 < max_time){
+    	while ((System.nanoTime() - start)/1000 < max_time){
     		
     		winner = state.getWinner();
     		
@@ -276,7 +294,7 @@ public class StudentPlayer extends TablutPlayer {
     		
     		legal_moves = state.getAllLegalMoves();
     		if (legal_moves.size() == 0){
-    			winner = getOpponent();
+    			winner = state.getOpponent();
     			if (winner == role)
     				results.result = 1;
     			else if (winner == getOpponent())
@@ -424,16 +442,18 @@ public class StudentPlayer extends TablutPlayer {
     }
     
  // For Debugging purposes only.
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
     	
         int num_wins_m = 0;
         int num_wins_s = 0;
         int num_games = 10;
         /*for (int i=0; i < num_games; i++){
 	        num_wins_m += play_game_muscovites();
+	        TimeUnit.SECONDS.sleep(1);
         }*/
         for (int i=0; i < num_games; i++){
 	        num_wins_s += play_game_swedes();
+	        TimeUnit.SECONDS.sleep(1);
         }
         System.out.println("Won "+num_wins_m+"/"+num_games+" as MUSCOVITES");
         System.out.println("Won "+num_wins_s+"/"+num_games+" as SWEDES");
